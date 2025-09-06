@@ -1,0 +1,76 @@
+-- ===========================================
+-- 🚴 Bike Sales Analysis Queries
+-- ===========================================
+
+-- 1. View Year 0 & Year 1 data
+SELECT * FROM bike_share_yr_0 LIMIT 10;
+SELECT * FROM bike_share_yr_1 LIMIT 10;
+
+-- 2. Total rentals per year
+SELECT 'Year 0' AS year, SUM(cnt) AS total_rentals
+FROM bike_share_yr_0
+UNION ALL
+SELECT 'Year 1', SUM(cnt)
+FROM bike_share_yr_1;
+
+-- 3. Compare monthly rentals between Year 0 and Year 1
+SELECT mth AS month,
+       SUM(cnt) FILTER (WHERE year = 0) AS rentals_year_0,
+       SUM(cnt) FILTER (WHERE year = 1) AS rentals_year_1
+FROM (
+    SELECT mth, cnt, 0 AS year FROM bike_share_yr_0
+    UNION ALL
+    SELECT mth, cnt, 1 AS year FROM bike_share_yr_1
+) t
+GROUP BY mth
+ORDER BY mth;
+
+-- 4. Peak demand hours (across both years)
+SELECT hr AS hour, SUM(cnt) AS total_rentals
+FROM (
+    SELECT hr, cnt FROM bike_share_yr_0
+    UNION ALL
+    SELECT hr, cnt FROM bike_share_yr_1
+) t
+GROUP BY hr
+ORDER BY total_rentals DESC
+LIMIT 5;
+
+-- 5. Weekday vs Weekend demand
+SELECT CASE WHEN weekday IN (0,6) THEN 'Weekend' ELSE 'Weekday' END AS day_type,
+       SUM(cnt) AS total_rentals
+FROM (
+    SELECT weekday, cnt FROM bike_share_yr_0
+    UNION ALL
+    SELECT weekday, cnt FROM bike_share_yr_1
+) t
+GROUP BY day_type;
+
+-- 6. Join with cost table: revenue calculation
+-- Assuming cost_table has (bike_type, cost_per_rental)
+SELECT b.season,
+       SUM(b.cnt * c.cost_per_rental) AS total_revenue
+FROM (
+    SELECT season, cnt, 'Standard' AS bike_type FROM bike_share_yr_0
+    UNION ALL
+    SELECT season, cnt, 'Standard' AS bike_type FROM bike_share_yr_1
+) b
+JOIN cost_table c
+    ON b.bike_type = c.bike_type
+GROUP BY b.season;
+
+-- 7. Average rentals by weather condition
+SELECT weathersit, ROUND(AVG(cnt),2) AS avg_rentals
+FROM (
+    SELECT weathersit, cnt FROM bike_share_yr_0
+    UNION ALL
+    SELECT weathersit, cnt FROM bike_share_yr_1
+) t
+GROUP BY weathersit
+ORDER BY avg_rentals DESC;
+
+-- 8. Growth rate of rentals from Year 0 to Year 1
+SELECT
+    ( (SELECT SUM(cnt) FROM bike_share_yr_1) -
+      (SELECT SUM(cnt) FROM bike_share_yr_0) ) * 100.0
+      / (SELECT SUM(cnt) FROM bike_share_yr_0) AS growth_percentage;
